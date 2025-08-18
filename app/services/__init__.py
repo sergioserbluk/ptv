@@ -55,6 +55,8 @@ def log_event(match_id, set_number, ev_type, payload):
     )
     conn.commit()
     conn.close()
+    if socketio:
+        socketio.emit("marker", {"type": ev_type, "payload": payload or {}})
 
 
 def load_match_names(match_id):

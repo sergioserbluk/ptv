@@ -21,6 +21,7 @@ def create_app():
     from .routes.equipos import equipos_bp
     from .routes.partidos import partidos_bp
     from .routes.jugadores import jugadores_bp
+    from .routes.streaming import streaming_bp
     from . import sockets
 
     init_db()
@@ -30,6 +31,7 @@ def create_app():
     app.register_blueprint(equipos_bp, url_prefix="/api/equipos")
     app.register_blueprint(partidos_bp, url_prefix="/api/partidos")
     app.register_blueprint(jugadores_bp, url_prefix="/api/jugadores")
+    app.register_blueprint(streaming_bp, url_prefix="/api/stream")
 
     sockets.register_socketio_events(socketio)
 
