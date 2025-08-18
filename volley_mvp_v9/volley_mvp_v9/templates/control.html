@@ -1,0 +1,356 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control v9</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+  <style>
+    .tabs{display:flex;gap:8px;margin-bottom:8px}
+    .tabs button{padding:10px 14px;border:none;border-radius:10px;background:#1f2937;color:#e5e7eb;cursor:pointer}
+    .tabs button.active{background:#22c55e;color:#053;font-weight:800}
+    .tab{display:none}
+    .tab.active{display:block}
+    iframe { width:100%; height:340px; border:1px solid #334155; border-radius:12px; }
+  </style>
+</head>
+<body class="control">
+  <div class="panel">
+    <h1>Panel de Control v9</h1>
+    <p>Admin (opcional): <a href="/admin" target="_blank">/admin</a></p>
+
+    <div class="row">
+      <div class="col">
+        <label>Torneo</label>
+        <select id="sel_tournament"></select>
+      </div>
+      <div class="col">
+        <label>Partido</label>
+        <select id="sel_match"></select>
+      </div>
+      <button id="btn_apply_ctx">Aplicar</button>
+      <a id="btn_export" class="btnlink" href="#" target="_blank">Exportar CSV</a>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Equipo Local</label>
+        <input id="home_name" placeholder="Local" maxlength="24">
+      </div>
+      <div class="col">
+        <label>Equipo Visitante</label>
+        <input id="away_name" placeholder="Visitante" maxlength="24">
+      </div>
+      <button id="btn_names">Actualizar Nombres</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tanteo">Tanteador</button>
+      <button class="tab-btn" data-tab="alineaciones">Alineaciones / Subs</button>
+      <button class="tab-btn" data-tab="preview">Preview</button>
+    </div>
+
+    <div id="tab-tanteo" class="tab active">
+      <div class="row points">
+        <div class="col">
+          <h3>Local</h3>
+          <div class="bigscore" id="ctl_home_points">0</div>
+          <div class="btns">
+            <button data-pt="home" data-amt="1">+1</button>
+            <button data-pt="home" data-amt="-1">-1</button>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Visitante</h3>
+          <div class="bigscore" id="ctl_away_points">0</div>
+          <div class="btns">
+            <button data-pt="away" data-amt="1">+1</button>
+            <button data-pt="away" data-amt="-1">-1</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row sets">
+        <div class="col">
+          <h3>Sets Local</h3>
+          <div class="bigset" id="ctl_home_sets">0</div>
+          <div class="btns">
+            <button data-set="home" data-amt="1">+1</button>
+            <button data-set="home" data-amt="-1">-1</button>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Sets Visitante</h3>
+          <div class="bigset" id="ctl_away_sets">0</div>
+          <div class="btns">
+            <button data-set="away" data-amt="1">+1</button>
+            <button data-set="away" data-amt="-1">-1</button>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Set actual</h3>
+          <div class="btns">
+            <button id="btn_next_set">Siguiente Set</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row timer">
+        <h3>Temporizador</h3>
+        <div class="btns">
+          <button data-timer="set" data-seconds="60">TO 1:00</button>
+          <button data-timer="set" data-seconds="30">TO 0:30</button>
+          <button data-timer="start">▶ Iniciar</button>
+          <button data-timer="stop">⏸ Detener</button>
+          <button data-timer="reset">⟲ Reset</button>
+        </div>
+      </div>
+
+      <div class="row scene-theme">
+        <div class="col">
+          <h3>Modo Overlay</h3>
+          <div class="btns">
+            <button data-mode="intro">Intro</button>
+            <button data-mode="partido">Partido</button>
+            <button data-mode="tiempo_fuera">Tiempo fuera</button>
+            <button data-mode="entre_sets">Entre sets</button>
+            <button data-mode="publicidad">Publicidad</button>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Tema</h3>
+          <div class="btns">
+            <button data-theme="dark">Oscuro</button>
+            <button data-theme="light">Claro</button>
+          </div>
+        </div>
+        <div class="col">
+          <h3>Publicidad</h3>
+          <div class="btns">
+            <button id="ads_on">Activar</button>
+            <button id="ads_off">Desactivar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row intro">
+        <div class="col">
+          <label>Título</label>
+          <input id="intro_title" value="Fecha 5 - Liga Local">
+        </div>
+        <div class="col">
+          <label>Subtítulo</label>
+          <input id="intro_subtitle" value="Iberá V.C. vs Independiente">
+        </div>
+        <div class="col">
+          <label>Extra</label>
+          <input id="intro_extra" value="Cancha: Polideportivo · 20:00">
+        </div>
+        <button id="intro_update">Actualizar Intro</button>
+      </div>
+    </div>
+
+    <div id="tab-alineaciones" class="tab">
+      <div class="row">
+        <div class="col">
+          <label>Equipo</label>
+          <select id="sel_team">
+            <option value="home">Local</option>
+            <option value="away">Visitante</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Set</label>
+          <select id="sel_set">
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          </select>
+        </div>
+        <button id="btn_refresh_lineup">Cargar</button>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <h3>En cancha (6)</h3>
+          <select id="oncourt" size="8" style="width:100%"></select>
+          <div class="row">
+            <div class="col">
+              <label>Líbero</label>
+              <select id="sel_libero"></select>
+            </div>
+            <button id="btn_apply_lineup">Aplicar sexteto + líbero</button>
+          </div>
+        </div>
+
+        <div class="col">
+          <h3>Banco</h3>
+          <select id="bench" size="8" style="width:100%"></select>
+
+          <div class="row" style="margin-top:10px">
+            <div class="col">
+              <label>Sale</label>
+              <select id="sel_out"></select>
+            </div>
+            <div class="col">
+              <label>Entra</label>
+              <select id="sel_in"></select>
+            </div>
+            <button id="btn_sub">Hacer sustitución</button>
+          </div>
+
+          <div class="row"><div id="subs_info" class="muted">Cambios usados: 0 / 6</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-preview" class="tab">
+      <iframe id="preview" src="/display"></iframe>
+    </div>
+  </div>
+
+<script>
+const socket = io({ transports: ['websocket','polling'] });
+let currentMatch = null;
+let teamsIds = {home:null, away:null};
+let playersByTeam = {home:[], away:[]};
+
+// tabs
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+async function loadTournaments(){
+  const res = await fetch('/api/tournaments'); const data = await res.json();
+  const sel = document.getElementById('sel_tournament'); sel.innerHTML='';
+  data.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=`${t.name} (${t.season||''})`; sel.appendChild(o); });
+  await loadMatches();
+}
+async function loadMatches(){
+  const tid = document.getElementById('sel_tournament').value;
+  const res = await fetch('/api/matches?tournament_id='+encodeURIComponent(tid)); const data = await res.json();
+  const sel = document.getElementById('sel_match'); sel.innerHTML='';
+  data.forEach(m=>{ const o=document.createElement('option'); o.value=m.id; o.textContent=m.label; sel.appendChild(o); });
+}
+document.getElementById('sel_tournament').addEventListener('change', loadMatches);
+
+document.getElementById('btn_apply_ctx').onclick = async ()=>{
+  const tid = document.getElementById('sel_tournament').value;
+  const mid = document.getElementById('sel_match').value;
+  if(!mid){ alert('Elegí un partido'); return; }
+  currentMatch = Number(mid);
+  document.getElementById('btn_export').href = `/api/events/export.csv?match_id=${mid}`;
+  socket.emit('select_context', {tournament_id: tid, match_id: mid});
+  const r = await fetch(`/api/match_teams?match_id=${mid}`); const tdata = await r.json();
+  teamsIds.home = tdata.home_id; teamsIds.away = tdata.away_id;
+  await loadTeamPlayers('home'); await loadTeamPlayers('away');
+  await refreshLineup();
+};
+
+document.getElementById('btn_names').onclick = ()=>{
+  socket.emit('update_names', { home_name: home_name.value||'Local', away_name: away_name.value||'Visitante' });
+};
+
+document.querySelectorAll('button[data-pt]').forEach(b=>{
+  b.onclick = ()=> socket.emit('point', { team: b.dataset.pt, amount: parseInt(b.dataset.amt,10) });
+});
+document.querySelectorAll('button[data-set]').forEach(b=>{
+  b.onclick = ()=> socket.emit('set_point', { team: b.dataset.set, amount: parseInt(b.dataset.amt,10) });
+});
+document.getElementById('btn_next_set').onclick = ()=> socket.emit('next_set');
+
+document.querySelectorAll('button[data-theme]').forEach(b=>{
+  b.onclick = ()=> socket.emit('theme', { theme: b.dataset.theme });
+});
+document.getElementById('ads_on').onclick = ()=> socket.emit('ads_toggle', { enabled: true });
+document.getElementById('ads_off').onclick = ()=> socket.emit('ads_toggle', { enabled: false });
+
+document.getElementById('intro_update').onclick = ()=>{
+  socket.emit('intro_update', {
+    intro_title: intro_title.value,
+    intro_subtitle: intro_subtitle.value,
+    intro_extra: intro_extra.value
+  });
+};
+document.querySelectorAll('button[data-mode]').forEach(b=>{
+  b.onclick = ()=> socket.emit('mode', { mode: b.dataset.mode });
+});
+
+socket.on('state_update', s=>{
+  document.getElementById('ctl_home_points').textContent = s.home_points;
+  document.getElementById('ctl_away_points').textContent = s.away_points;
+  document.getElementById('ctl_home_sets').textContent = s.home_sets;
+  document.getElementById('ctl_away_sets').textContent = s.away_sets;
+});
+
+socket.on('tie_on_set_end', p=> alert(`Empate al cerrar el set (${p.home_points}-${p.away_points}). Definí el punto y presioná Siguiente Set.`));
+
+async function loadTeamPlayers(side){
+  const team_id = teamsIds[side]; if(!team_id) return;
+  const r = await fetch('/api/team_players?team_id='+team_id); const data = await r.json();
+  playersByTeam[side] = data;
+}
+
+function fillSelect(sel, items, map){
+  sel.innerHTML=''; items.forEach(it=>{
+    const o=document.createElement('option');
+    o.value = map ? map(it) : it.id;
+    o.textContent = `#${it.number||'-'} ${it.name}` + (it.libero?' (L)':'');
+    sel.appendChild(o);
+  });
+}
+
+async function refreshLineup(){
+  const side = document.getElementById('sel_team').value;
+  const setn = Number(document.getElementById('sel_set').value);
+  if(!currentMatch){ return; }
+  const r = await fetch(`/api/lineup?match_id=${currentMatch}&set_number=${setn}&team=${side}`);
+  const data = await r.json();
+  const all = playersByTeam[side] || [];
+  const onIds = new Set(data.players||[]);
+  const on = all.filter(p=> onIds.has(p.id));
+  const bench = all.filter(p=> !onIds.has(p.id));
+  fillSelect(document.getElementById('oncourt'), on);
+  fillSelect(document.getElementById('bench'), bench);
+  const libSel = document.getElementById('sel_libero');
+  fillSelect(libSel, all.filter(p=>p.libero), x=>x.id);
+  if (data.libero_id) libSel.value = data.libero_id;
+  fillSelect(document.getElementById('sel_out'), on, x=>x.id);
+  fillSelect(document.getElementById('sel_in'), bench, x=>x.id);
+  document.getElementById('subs_info').textContent = `Cambios usados: ${data.subs_used||0} / ${data.subs_limit||6}`;
+}
+
+document.getElementById('btn_refresh_lineup').onclick = refreshLineup;
+
+document.getElementById('btn_apply_lineup').onclick = async ()=>{
+  const side = document.getElementById('sel_team').value;
+  const setn = Number(document.getElementById('sel_set').value);
+  const on = Array.from(document.getElementById('oncourt').options).map(o=> Number(o.value));
+  if(on.length!==6) { alert('Debés tener 6 en cancha'); return; }
+  const libero_id = Number(document.getElementById('sel_libero').value)||null;
+  const r = await fetch('/api/lineup',{method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({match_id: currentMatch, set_number: setn, team: side, players: on, libero_id})});
+  const data = await r.json(); if(!data.ok){ alert(data.error||'Error'); return; }
+  await refreshLineup();
+};
+
+document.getElementById('btn_sub').onclick = async ()=>{
+  const side = document.getElementById('sel_team').value;
+  const setn = Number(document.getElementById('sel_set').value);
+  const out_id = Number(document.getElementById('sel_out').value);
+  const in_id = Number(document.getElementById('sel_in').value);
+  if(!out_id || !in_id){ alert('Elegí Sale y Entra'); return; }
+  const r = await fetch('/api/sub',{method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({match_id: currentMatch, set_number: setn, team: side, out_id, in_id})});
+  const data = await r.json(); if(!data.ok){ alert(data.error||'Error'); return; }
+  await refreshLineup();
+};
+
+(async function bootstrap(){ await loadTournaments(); })();
+</script>
+</body>
+</html>

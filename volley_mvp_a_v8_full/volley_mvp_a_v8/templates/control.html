@@ -1,0 +1,398 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control + Alineaciones</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+  <style>
+    .layout { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; }
+    iframe { width:100%; height:340px; border:1px solid #334155; border-radius:12px; }
+    .tabs { display:flex; gap:8px; margin:6px 0 12px }
+    .tabs button { background:#334155; color:#e2e8f0 }
+    .tabs button.active { background:#22c55e; color:#053 }
+    .tabpane { display:none }
+    .tabpane.active { display:block }
+    .lists { display:grid; grid-template-columns:1fr 1fr; gap:12px }
+    select[multiple]{ min-height:180px }
+    small.muted{opacity:.8}
+  </style>
+</head>
+<body class="control">
+  <div class="panel">
+    <h1>Panel de Control</h1>
+    <p>Admin: <a href="/admin" target="_blank">/admin</a></p>
+
+    <div class="row">
+      <div class="col">
+        <label>Torneo</label>
+        <select id="sel_tournament"></select>
+      </div>
+      <div class="col">
+        <label>Partido</label>
+        <select id="sel_match"></select>
+      </div>
+      <button id="btn_apply_ctx">Aplicar</button>
+    </div>
+
+    <div class="tabs">
+      <button data-tab="score" class="active">Tanteador</button>
+      <button data-tab="lineups">Alineaciones y Cambios</button>
+    </div>
+
+    <div id="tab_score" class="tabpane active">
+      <div class="layout">
+        <div>
+          <div class="row names">
+            <div class="col">
+              <label>Equipo Local</label>
+              <input id="home_name" placeholder="Local" maxlength="24">
+            </div>
+            <div class="col">
+              <label>Equipo Visitante</label>
+              <input id="away_name" placeholder="Visitante" maxlength="24">
+            </div>
+            <button id="btn_names">Actualizar Nombres</button>
+          </div>
+
+          <div class="row points">
+            <div class="col">
+              <h3>Local</h3>
+              <div class="bigscore" id="ctl_home_points">0</div>
+              <div class="btns">
+                <button data-pt="home" data-amt="1">+1</button>
+                <button data-pt="home" data-amt="-1">-1</button>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Visitante</h3>
+              <div class="bigscore" id="ctl_away_points">0</div>
+              <div class="btns">
+                <button data-pt="away" data-amt="1">+1</button>
+                <button data-pt="away" data-amt="-1">-1</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row sets">
+            <div class="col">
+              <h3>Sets Local</h3>
+              <div class="bigset" id="ctl_home_sets">0</div>
+              <div class="btns">
+                <button data-set="home" data-amt="1">+1</button>
+                <button data-set="home" data-amt="-1">-1</button>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Sets Visitante</h3>
+              <div class="bigset" id="ctl_away_sets">0</div>
+              <div class="btns">
+                <button data-set="away" data-amt="1">+1</button>
+                <button data-set="away" data-amt="-1">-1</button>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Set actual</h3>
+              <div class="btns">
+                <button id="btn_next_set">Siguiente Set</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row timer">
+            <h3>Temporizador</h3>
+            <div class="btns">
+              <button data-timer="set" data-seconds="60">TO 1:00</button>
+              <button data-timer="set" data-seconds="30">TO 0:30</button>
+              <button data-timer="start">▶ Iniciar</button>
+              <button data-timer="stop">⏸ Detener</button>
+              <button data-timer="reset">⟲ Reset</button>
+            </div>
+          </div>
+
+          <div class="row scene-theme">
+            <div class="col">
+              <h3>Modo Overlay</h3>
+              <div class="btns">
+                <button data-mode="intro">Intro</button>
+                <button data-mode="partido">Partido</button>
+                <button data-mode="tiempo_fuera">Tiempo fuera</button>
+                <button data-mode="entre_sets">Entre sets</button>
+                <button data-mode="publicidad">Publicidad</button>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Tema</h3>
+              <div class="btns">
+                <button data-theme="dark">Oscuro</button>
+                <button data-theme="light">Claro</button>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Publicidad</h3>
+              <div class="btns">
+                <button id="ads_on">Activar</button>
+                <button id="ads_off">Desactivar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row intro">
+            <div class="col">
+              <label>Título</label>
+              <input id="intro_title" value="Fecha 5 - Liga Local">
+            </div>
+            <div class="col">
+              <label>Subtítulo</label>
+              <input id="intro_subtitle" value="Iberá V.C. vs Independiente">
+            </div>
+            <div class="col">
+              <label>Extra</label>
+              <input id="intro_extra" value="Cancha: Polideportivo · 20:00">
+            </div>
+            <button id="intro_update">Actualizar Intro</button>
+          </div>
+
+          <div class="row">
+            <a id="btn_export" class="btnlink" href="#" target="_blank">Exportar CSV de eventos</a>
+          </div>
+        </div>
+
+        <div>
+          <h3>Preview</h3>
+          <iframe id="preview" src="/display"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab_lineups" class="tabpane">
+      <h2>Alineaciones y Cambios</h2>
+      <div class="row">
+        <div class="col">
+          <label>Equipo</label>
+          <select id="lu_team">
+            <option value="home">Local</option>
+            <option value="away">Visitante</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Set</label>
+          <input id="lu_set" type="number" min="1" value="1"/>
+        </div>
+        <div class="col">
+          <small class="muted">Elegí partido arriba y presioná <b>Aplicar</b>.</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Jugadores del equipo</label>
+          <div class="lists">
+            <div>
+              <div><b>Sexteto inicial (6)</b></div>
+              <select id="sel_oncourt" multiple></select>
+            </div>
+            <div>
+              <div><b>Banco</b></div>
+              <select id="sel_bench" multiple></select>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <label>Líbero</label>
+          <select id="sel_libero"></select>
+          <div class="btns" style="margin-top:10px">
+            <button id="btn_apply_lineup">Aplicar sexteto + líbero</button>
+          </div>
+          <hr/>
+          <h3>Sustituciones</h3>
+          <div class="row">
+            <div class="col">
+              <label>Sale (en cancha)</label>
+              <select id="sub_out"></select>
+            </div>
+            <div class="col">
+              <label>Entra (banco)</label>
+              <select id="sub_in"></select>
+            </div>
+            <div class="col" style="min-width:160px">
+              <label> </label>
+              <button id="btn_sub">Hacer sustitución</button>
+              <div><small id="subs_info" class="muted"></small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const socket = io({ transports: ['websocket','polling'] });
+
+// Tabs
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab_'+b.dataset.tab).classList.add('active');
+  };
+});
+
+async function loadTournaments(){
+  const res = await fetch('/api/tournaments'); const data = await res.json();
+  const sel = document.getElementById('sel_tournament');
+  sel.innerHTML = '';
+  data.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id; opt.textContent = `${t.name} (${t.season||''}) · ${t.ruleset}`;
+    sel.appendChild(opt);
+  });
+  await loadMatches();
+}
+async function loadMatches(){
+  const tid = document.getElementById('sel_tournament').value;
+  const res = await fetch('/api/matches?tournament_id='+encodeURIComponent(tid));
+  const data = await res.json();
+  const sel = document.getElementById('sel_match');
+  sel.innerHTML = '';
+  data.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = `${m.label}`;
+    sel.appendChild(opt);
+  });
+}
+document.getElementById('sel_tournament').addEventListener('change', loadMatches);
+document.getElementById('btn_apply_ctx').onclick = async ()=>{
+  const tid = document.getElementById('sel_tournament').value;
+  const mid = document.getElementById('sel_match').value;
+  socket.emit('select_context', { tournament_id: tid, match_id: mid });
+  document.getElementById('btn_export').href = `/api/events/export.csv?match_id=${encodeURIComponent(mid)}`;
+  document.getElementById('lu_set').value = window.currentSet || 1;
+  await refreshLineupLists();
+};
+
+document.getElementById('btn_names').onclick = ()=>{
+  socket.emit('update_names', { home_name: home_name.value||'Local', away_name: away_name.value||'Visitante' });
+};
+document.querySelectorAll('button[data-pt]').forEach(b=>{
+  b.onclick = ()=> socket.emit('point', { team: b.dataset.pt, amount: parseInt(b.dataset.amt,10) });
+});
+document.querySelectorAll('button[data-set]').forEach(b=>{
+  b.onclick = ()=> socket.emit('set_point', { team: b.dataset.set, amount: parseInt(b.dataset.amt,10) });
+});
+document.getElementById('btn_next_set').onclick = async ()=>{
+  socket.emit('next_set');
+  setTimeout(refreshLineupLists, 150);
+};
+
+document.querySelectorAll('button[data-theme]').forEach(b=>{
+  b.onclick = ()=> socket.emit('theme', { theme: b.dataset.theme });
+});
+document.getElementById('ads_on').onclick = ()=> socket.emit('ads_toggle', { enabled: true });
+document.getElementById('ads_off').onclick = ()=> socket.emit('ads_toggle', { enabled: false });
+
+document.getElementById('intro_update').onclick = ()=>{
+  socket.emit('intro_update', {
+    intro_title: intro_title.value,
+    intro_subtitle: intro_subtitle.value,
+    intro_extra: intro_extra.value
+  });
+};
+document.querySelectorAll('button[data-mode]').forEach(b=>{
+  b.onclick = ()=> socket.emit('mode', { mode: b.dataset.mode });
+});
+
+socket.on('state_update', s=>{
+  document.getElementById('ctl_home_points').textContent = s.home_points;
+  document.getElementById('ctl_away_points').textContent = s.away_points;
+  document.getElementById('ctl_home_sets').textContent = s.home_sets;
+  document.getElementById('ctl_away_sets').textContent = s.away_sets;
+  window.currentSet = s.set_number;
+  updateSubsInfo();
+});
+socket.on('tie_on_set_end', p=> alert(`Empate al cerrar el set (${p.home_points}-${p.away_points}). Definí el punto y presioná Siguiente Set.`));
+socket.on('error_msg', e=> alert(e.msg||'Error'));
+
+// -------- Lineup tab logic --------
+async function fetchJSON(url){ const r = await fetch(url); return await r.json(); }
+
+async function refreshLineupLists(){
+  const teamKey = document.getElementById('lu_team').value;
+  const mid = document.getElementById('sel_match').value;
+  if(!mid) return;
+  const match = await fetchJSON('/api/match/'+mid);
+  const teamId = (teamKey==='home') ? match.home_id : match.away_id;
+  const setNumber = Number(document.getElementById('lu_set').value)||1;
+
+  const players = await fetchJSON('/api/players?team_id='+teamId);
+  const lu = await fetchJSON(`/api/lineup?match_id=${mid}&set_number=${setNumber}&team_id=${teamId}`);
+
+  const onSel = document.getElementById('sel_oncourt');
+  const benchSel = document.getElementById('sel_bench');
+  const libSel = document.getElementById('sel_libero');
+  const subOut = document.getElementById('sub_out');
+  const subIn = document.getElementById('sub_in');
+
+  onSel.innerHTML=''; benchSel.innerHTML=''; libSel.innerHTML=''; subOut.innerHTML=''; subIn.innerHTML='';
+
+  const on = new Set(lu.players || []);
+  players.forEach(p=>{
+    const label = `#${p.number||''} ${p.name}`.trim();
+    const opt = (val)=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=label; return o; };
+    if(on.has(p.id)) onSel.appendChild(opt());
+    else benchSel.appendChild(opt());
+    const optL = opt(); if(p.libero) optL.textContent += " (L)";
+    libSel.appendChild(optL);
+  });
+  if(lu.libero_id){ libSel.value = lu.libero_id; }
+
+  Array.from(onSel.options).forEach(o=> subOut.appendChild(o.cloneNode(true)));
+  Array.from(benchSel.options).forEach(o=> subIn.appendChild(o.cloneNode(true)));
+
+  updateSubsInfo();
+}
+
+function getMultiValues(sel){
+  return Array.from(sel.selectedOptions).map(o=> Number(o.value));
+}
+
+document.getElementById('lu_team').addEventListener('change', refreshLineupLists);
+document.getElementById('lu_set').addEventListener('change', refreshLineupLists);
+
+document.getElementById('btn_apply_lineup').onclick = async ()=>{
+  const team = document.getElementById('lu_team').value;
+  const set_number = Number(document.getElementById('lu_set').value)||1;
+  const players = getMultiValues(document.getElementById('sel_oncourt'));
+  if(players.length !== 6){ alert('Elegí exactamente 6 en cancha'); return; }
+  const libero_id = Number(document.getElementById('sel_libero').value)||null;
+  socket.emit('set_lineup', { team, set_number, players, libero_id });
+  setTimeout(refreshLineupLists, 150);
+};
+
+document.getElementById('btn_sub').onclick = async ()=>{
+  const team = document.getElementById('lu_team').value;
+  const out_id = Number(document.getElementById('sub_out').value);
+  const in_id = Number(document.getElementById('sub_in').value);
+  if(!out_id || !in_id){ alert('Seleccioná Sale y Entra'); return; }
+  if(out_id === in_id){ alert('Sale y Entra no pueden ser el mismo'); return; }
+  socket.emit('substitution', { team, out_id, in_id });
+  setTimeout(refreshLineupLists, 120);
+};
+
+async function updateSubsInfo(){
+  const mid = document.getElementById('sel_match').value;
+  if(!mid) return;
+  const setNumber = Number(document.getElementById('lu_set').value)||window.currentSet||1;
+  const team = document.getElementById('lu_team').value;
+  const data = await fetchJSON(`/api/subs_count?match_id=${mid}&set_number=${setNumber}&team=${team}`);
+  const el = document.getElementById('subs_info');
+  if(el && data && typeof data.count !== 'undefined'){ el.textContent = `Cambios usados: ${data.count}/${data.limit}`; }
+}
+
+loadTournaments();
+</script>
+</body>
+</html>

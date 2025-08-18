@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Display</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>body{margin:0;background:rgba(0,0,0,0)}</style>
+  <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="overlay" class="sb sb-dark">
+    <div id="intro" class="intro" style="display:none">
+      <div class="intro-text">
+        <div id="intro_title" class="intro-title">Fecha 5 - Liga Local</div>
+        <div id="intro_subtitle" class="intro-subtitle">Iberá V.C. vs Independiente</div>
+        <div id="intro_extra" class="intro-extra">Cancha: Polideportivo · 20:00</div>
+      </div>
+      <div class="ads-slot"><img id="ad_intro" alt="Publicidad"></div>
+    </div>
+
+    <div id="partido" class="scorebar" style="display:none">
+      <div class="row top">
+        <div class="team"><div class="team-name" id="home_name">Local</div><div class="sets">Sets: <span id="home_sets">0</span></div></div>
+        <div class="center"><div class="set-number">Set <span id="set_number">1</span></div><div class="timer" id="timer">00:00</div></div>
+        <div class="team"><div class="team-name" id="away_name">Visitante</div><div class="sets">Sets: <span id="away_sets">0</span></div></div>
+      </div>
+      <div class="row bottom">
+        <div class="points" id="home_points">0</div>
+        <div class="points" id="away_points">0</div>
+      </div>
+    </div>
+
+    <div id="entre_sets" class="banner" style="display:none">
+      <div class="bigline">Entre Sets</div>
+      <div class="sub">Gracias a nuestros sponsors</div>
+      <div class="ads-slot"><img id="ad_entresets" alt="Publicidad"></div>
+    </div>
+
+    <div id="tiempo_fuera" class="banner" style="display:none">
+      <div class="bigline">Tiempo Fuera</div>
+      <div class="sub">Mensaje del sponsor</div>
+      <div class="ads-slot"><img id="ad_tiempofuera" alt="Publicidad"></div>
+    </div>
+
+    <div id="publicidad" class="banner" style="display:none">
+      <div class="bigline">Publicidad</div>
+      <div class="sub">¡Gracias por acompañarnos!</div>
+      <div class="ads-slot"><img id="ad_publicidad" alt="Publicidad"></div>
+    </div>
+  </div>
+
+<script>
+const socket = io({ transports: ['websocket','polling'] });
+
+function showMode(mode){
+  ['intro','partido','tiempo_fuera','entre_sets','publicidad'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === mode) ? 'block' : 'none';
+  });
+}
+function pad(n){ return (n<10?'0':'')+n; }
+
+let adTimers = [];
+function clearAdTimers(){ adTimers.forEach(t=>clearInterval(t)); adTimers=[]; }
+function startAdsLoop(ids, imgs){
+  if(!imgs || !imgs.length) return;
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    let i = 0; el.src = imgs[0];
+    adTimers.push(setInterval(()=>{ i=(i+1)%imgs.length; el.src = imgs[i]; }, 8000));
+  });
+}
+
+async function refreshAds(enabled){
+  clearAdTimers();
+  if(!enabled) return ['ad_intro','ad_entresets','ad_tiempofuera','ad_publicidad'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.removeAttribute('src');
+  });
+  try{
+    const res = await fetch('/ads', {cache:'no-store'});
+    const data = await res.json();
+    const imgs = data.images || [];
+    startAdsLoop(['ad_intro','ad_entresets','ad_tiempofuera','ad_publicidad'], imgs);
+  }catch(e){ console.warn(e); }
+}
+
+socket.on('state_update', (s)=>{
+  document.querySelectorAll('.sb').forEach(b=> b.className = 'sb sb-'+(s.theme || 'dark'));
+  showMode(s.mode || 'intro');
+
+  const it = document.getElementById('intro_title'); if(it) it.textContent = s.intro_title || '';
+  const isub = document.getElementById('intro_subtitle'); if(isub) isub.textContent = s.intro_subtitle || '';
+  const iex = document.getElementById('intro_extra'); if(iex) iex.textContent = s.intro_extra || '';
+
+  const hn = document.getElementById('home_name'); if(hn) hn.textContent = s.home_name;
+  const an = document.getElementById('away_name'); if(an) an.textContent = s.away_name;
+  const hp = document.getElementById('home_points'); if(hp) hp.textContent = s.home_points;
+  const ap = document.getElementById('away_points'); if(ap) ap.textContent = s.away_points;
+  const hs = document.getElementById('home_sets'); if(hs) hs.textContent = s.home_sets;
+  const as = document.getElementById('away_sets'); if(as) as.textContent = s.away_sets;
+  const sn = document.getElementById('set_number'); if(sn) sn.textContent = s.set_number;
+  const ti = document.getElementById('timer');
+  if (ti) { const t = Math.max(0, parseInt(s.timer_seconds||0,10));
+           ti.textContent = pad(Math.floor(t/60))+':'+pad(t%60); }
+
+  refreshAds(s.ads_enabled);
+});
+setInterval(()=>socket.emit('tick'), 1000);
+</script>
+</body>
+</html>

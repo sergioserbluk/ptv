@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+  <style>
+    .layout { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; }
+    iframe { width:100%; height:340px; border:1px solid #334155; border-radius:12px; }
+  </style>
+</head>
+<body class="control">
+  <div class="panel">
+    <h1>Panel de Control</h1>
+    <p>Admin: <a href="/admin" target="_blank">/admin</a></p>
+    <div class="row">
+      <div class="col">
+        <label>Torneo</label>
+        <select id="sel_tournament"></select>
+      </div>
+      <div class="col">
+        <label>Partido</label>
+        <select id="sel_match"></select>
+      </div>
+      <button id="btn_apply_ctx">Aplicar</button>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="row names">
+          <div class="col">
+            <label>Equipo Local</label>
+            <input id="home_name" placeholder="Local" maxlength="24">
+          </div>
+          <div class="col">
+            <label>Equipo Visitante</label>
+            <input id="away_name" placeholder="Visitante" maxlength="24">
+          </div>
+          <button id="btn_names">Actualizar Nombres</button>
+        </div>
+
+        <div class="row points">
+          <div class="col">
+            <h3>Local</h3>
+            <div class="bigscore" id="ctl_home_points">0</div>
+            <div class="btns">
+              <button data-pt="home" data-amt="1">+1</button>
+              <button data-pt="home" data-amt="-1">-1</button>
+            </div>
+          </div>
+          <div class="col">
+            <h3>Visitante</h3>
+            <div class="bigscore" id="ctl_away_points">0</div>
+            <div class="btns">
+              <button data-pt="away" data-amt="1">+1</button>
+              <button data-pt="away" data-amt="-1">-1</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row sets">
+          <div class="col">
+            <h3>Sets Local</h3>
+            <div class="bigset" id="ctl_home_sets">0</div>
+            <div class="btns">
+              <button data-set="home" data-amt="1">+1</button>
+              <button data-set="home" data-amt="-1">-1</button>
+            </div>
+          </div>
+          <div class="col">
+            <h3>Sets Visitante</h3>
+            <div class="bigset" id="ctl_away_sets">0</div>
+            <div class="btns>
+              <button data-set="away" data-amt="1">+1</button>
+              <button data-set="away" data-amt="-1">-1</button>
+            </div>
+          </div>
+          <div class="col">
+            <h3>Set actual</h3>
+            <div class="btns">
+              <button id="btn_next_set">Siguiente Set</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row timer">
+          <h3>Temporizador</h3>
+          <div class="btns">
+            <button data-timer="set" data-seconds="60">TO 1:00</button>
+            <button data-timer="set" data-seconds="30">TO 0:30</button>
+            <button data-timer="start">▶ Iniciar</button>
+            <button data-timer="stop">⏸ Detener</button>
+            <button data-timer="reset">⟲ Reset</button>
+          </div>
+        </div>
+
+        <div class="row scene-theme">
+          <div class="col">
+            <h3>Modo Overlay</h3>
+            <div class="btns">
+              <button data-mode="intro">Intro</button>
+              <button data-mode="partido">Partido</button>
+              <button data-mode="tiempo_fuera">Tiempo fuera</button>
+              <button data-mode="entre_sets">Entre sets</button>
+              <button data-mode="publicidad">Publicidad</button>
+            </div>
+          </div>
+          <div class="col">
+            <h3>Tema</h3>
+            <div class="btns">
+              <button data-theme="dark">Oscuro</button>
+              <button data-theme="light">Claro</button>
+            </div>
+          </div>
+          <div class="col">
+            <h3>Publicidad</h3>
+            <div class="btns">
+              <button id="ads_on">Activar</button>
+              <button id="ads_off">Desactivar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row intro">
+          <div class="col">
+            <label>Título</label>
+            <input id="intro_title" value="Fecha 5 - Liga Local">
+          </div>
+          <div class="col">
+            <label>Subtítulo</label>
+            <input id="intro_subtitle" value="Iberá V.C. vs Independiente">
+          </div>
+          <div class="col">
+            <label>Extra</label>
+            <input id="intro_extra" value="Cancha: Polideportivo · 20:00">
+          </div>
+          <button id="intro_update">Actualizar Intro</button>
+        </div>
+
+        <div class="row">
+          <a id="btn_export" class="btnlink" href="#" target="_blank">Exportar CSV de eventos</a>
+        </div>
+      </div>
+
+      <div>
+        <h3>Preview</h3>
+        <iframe id="preview" src="/display"></iframe>
+      </div>
+    </div>
+  </div>
+
+<script>
+const socket = io({ transports: ['websocket','polling'] });
+
+async function loadTournaments(){
+  const res = await fetch('/api/tournaments'); const data = await res.json();
+  const sel = document.getElementById('sel_tournament');
+  sel.innerHTML = '';
+  data.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id; opt.textContent = `${t.name} (${t.season||''}) · ${t.ruleset}`;
+    sel.appendChild(opt);
+  });
+  await loadMatches();
+}
+async function loadMatches(){
+  const tid = document.getElementById('sel_tournament').value;
+  const res = await fetch('/api/matches?tournament_id='+encodeURIComponent(tid));
+  const data = await res.json();
+  const sel = document.getElementById('sel_match');
+  sel.innerHTML = '';
+  data.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = `${m.label}`;
+    sel.appendChild(opt);
+  });
+}
+document.getElementById('sel_tournament').addEventListener('change', loadMatches);
+document.getElementById('btn_apply_ctx').onclick = ()=>{
+  const tid = document.getElementById('sel_tournament').value;
+  const mid = document.getElementById('sel_match').value;
+  socket.emit('select_context', { tournament_id: tid, match_id: mid });
+  document.getElementById('btn_export').href = `/api/events/export.csv?match_id=${encodeURIComponent(mid)}`;
+};
+
+document.getElementById('btn_names').onclick = ()=>{
+  socket.emit('update_names', { home_name: home_name.value||'Local', away_name: away_name.value||'Visitante' });
+};
+document.querySelectorAll('button[data-pt]').forEach(b=>{
+  b.onclick = ()=> socket.emit('point', { team: b.dataset.pt, amount: parseInt(b.dataset.amt,10) });
+});
+document.querySelectorAll('button[data-set]').forEach(b=>{
+  b.onclick = ()=> socket.emit('set_point', { team: b.dataset.set, amount: parseInt(b.dataset.amt,10) });
+});
+document.getElementById('btn_next_set').onclick = ()=> socket.emit('next_set');
+
+document.querySelectorAll('button[data-theme]').forEach(b=>{
+  b.onclick = ()=> socket.emit('theme', { theme: b.dataset.theme });
+});
+document.getElementById('ads_on').onclick = ()=> socket.emit('ads_toggle', { enabled: true });
+document.getElementById('ads_off').onclick = ()=> socket.emit('ads_toggle', { enabled: false });
+
+document.getElementById('intro_update').onclick = ()=>{
+  socket.emit('intro_update', {
+    intro_title: intro_title.value,
+    intro_subtitle: intro_subtitle.value,
+    intro_extra: intro_extra.value
+  });
+};
+document.querySelectorAll('button[data-mode]').forEach(b=>{
+  b.onclick = ()=> socket.emit('mode', { mode: b.dataset.mode });
+});
+
+socket.on('state_update', s=>{
+  document.getElementById('ctl_home_points').textContent = s.home_points;
+  document.getElementById('ctl_away_points').textContent = s.away_points;
+  document.getElementById('ctl_home_sets').textContent = s.home_sets;
+  document.getElementById('ctl_away_sets').textContent = s.away_sets;
+});
+socket.on('tie_on_set_end', p=> alert(`Empate al cerrar el set (${p.home_points}-${p.away_points}). Definí el punto y presioná Siguiente Set.`));
+
+loadTournaments();
+</script>
+</body>
+</html>

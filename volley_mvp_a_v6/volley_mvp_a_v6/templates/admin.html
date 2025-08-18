@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin · Equipos / Torneos / Partidos</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b1220;color:#e5e7eb;margin:0}
+    .wrap{max-width:1100px;margin:16px auto;padding:16px}
+    h1{margin:0 0 8px} h2{margin:18px 0 8px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    input,select,button{padding:10px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#e5e7eb}
+    button{background:#22c55e;color:#053;border:none;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#0f172a;border-radius:10px;overflow:hidden}
+    th,td{padding:8px;border-bottom:1px solid #1f2937;font-size:14px}
+    th{background:#111827;text-align:left}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Panel Admin</h1>
+    <p>Creá equipos, torneos y partidos. Luego, usalos en <b>/control</b>.</p>
+    <div class="grid">
+      <section>
+        <h2>Crear Equipo</h2>
+        <div class="row">
+          <input id="team_name" placeholder="Nombre del equipo"/>
+          <input id="team_short" placeholder="Abreviado (opcional)"/>
+          <button onclick="createTeam()">Crear</button>
+        </div>
+        <h3>Equipos</h3>
+        <table id="teams_tbl"><thead><tr><th>ID</th><th>Nombre</th><th>Abrev.</th></tr></thead><tbody></tbody></table>
+      </section>
+
+      <section>
+        <h2>Crear Torneo</h2>
+        <div class="row">
+          <input id="tourn_name" placeholder="Nombre del torneo"/>
+          <input id="tourn_season" placeholder="Temporada (ej: 2025)"/>
+          <select id="tourn_ruleset"></select>
+          <select id="tourn_type">
+            <option value="round_robin">Round Robin</option>
+            <option value="bracket">Eliminación</option>
+          </select>
+          <button onclick="createTournament()">Crear</button>
+        </div>
+        <h3>Torneos</h3>
+        <table id="tourn_tbl"><thead><tr><th>ID</th><th>Nombre</th><th>Temp.</th><th>Ruleset</th><th>Tipo</th></tr></thead><tbody></tbody></table>
+      </section>
+    </div>
+
+    <section>
+      <h2>Crear Partido</h2>
+      <div class="row">
+        <select id="match_tournament"></select>
+        <select id="match_home"></select>
+        <select id="match_away"></select>
+        <input id="match_date" placeholder="Fecha ISO (opcional)"/>
+        <input id="match_gym" placeholder="Gimnasio (opcional)"/>
+        <button onclick="createMatch()">Crear</button>
+      </div>
+      <h3>Partidos</h3>
+      <table id="matches_tbl"><thead><tr><th>ID</th><th>Match</th><th>Estado</th><th>Fecha</th></tr></thead><tbody></tbody></table>
+    </section>
+  </div>
+
+<script>
+async function loadRulesets(){
+  const res = await fetch('/api/rulesets'); const rs = await res.json();
+  const sel = document.getElementById('tourn_ruleset');
+  sel.innerHTML = ''; rs.forEach(r=>{ const o=document.createElement('option'); o.value=r.id; o.textContent=r.name; sel.appendChild(o); });
+}
+async function loadTeams(){
+  const res = await fetch('/api/teams'); const data = await res.json();
+  const tbl = document.querySelector('#teams_tbl tbody'); tbl.innerHTML = '';
+  const selH = document.getElementById('match_home'); const selA = document.getElementById('match_away');
+  selH.innerHTML=''; selA.innerHTML='';
+  data.forEach(t=>{
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${t.id}</td><td>${t.name}</td><td>${t.short||''}</td>`; tbl.appendChild(tr);
+    const opt1=document.createElement('option'); opt1.value=t.id; opt1.textContent=t.name; selH.appendChild(opt1);
+    const opt2=document.createElement('option'); opt2.value=t.id; opt2.textContent=t.name; selA.appendChild(opt2);
+  });
+}
+async function loadTournaments(){
+  const res = await fetch('/api/tournaments'); const data = await res.json();
+  const tbl = document.querySelector('#tourn_tbl tbody'); tbl.innerHTML = '';
+  const sel = document.getElementById('match_tournament'); sel.innerHTML='';
+  data.forEach(t=>{
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${t.id}</td><td>${t.name}</td><td>${t.season||''}</td><td>${t.ruleset}</td><td>${t.type}</td>`; tbl.appendChild(tr);
+    const opt=document.createElement('option'); opt.value=t.id; opt.textContent=`${t.name} (${t.season||''})`; sel.appendChild(opt);
+  });
+  await loadMatches();
+}
+async function loadMatches(){
+  const tid = document.getElementById('match_tournament').value;
+  const url = tid ? `/api/matches?tournament_id=${encodeURIComponent(tid)}` : '/api/matches';
+  const res = await fetch(url); const data = await res.json();
+  const tbl = document.querySelector('#matches_tbl tbody'); tbl.innerHTML='';
+  data.forEach(m=>{
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${m.id}</td><td>${m.label}</td><td>${m.status}</td><td>${m.date||''}</td>`; tbl.appendChild(tr);
+  });
+}
+document.getElementById('match_tournament').addEventListener('change', loadMatches);
+
+async function createTeam(){
+  const name = document.getElementById('team_name').value.trim();
+  const short = document.getElementById('team_short').value.trim();
+  if(!name) return alert('Nombre requerido');
+  const res = await fetch('/api/admin/team',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, short})});
+  const data = await res.json(); if(!data.ok){ alert(data.error||'Error'); return; }
+  document.getElementById('team_name').value=''; document.getElementById('team_short').value='';
+  await loadTeams();
+}
+
+async function createTournament(){
+  const name = document.getElementById('tourn_name').value.trim();
+  const season = document.getElementById('tourn_season').value.trim();
+  const ruleset_id = document.getElementById('tourn_ruleset').value;
+  const type = document.getElementById('tourn_type').value;
+  if(!name || !ruleset_id) return alert('Nombre y ruleset requeridos');
+  const res = await fetch('/api/admin/tournament',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, season, ruleset_id:Number(ruleset_id), type})});
+  const data = await res.json(); if(!data.ok){ alert(data.error||'Error'); return; }
+  document.getElementById('tourn_name').value=''; document.getElementById('tourn_season').value='';
+  await loadTournaments();
+}
+
+async function createMatch(){
+  const tournament_id = Number(document.getElementById('match_tournament').value);
+  const home_id = Number(document.getElementById('match_home').value);
+  const away_id = Number(document.getElementById('match_away').value);
+  const date = document.getElementById('match_date').value.trim();
+  const gym = document.getElementById('match_gym').value.trim();
+  if(!tournament_id || !home_id || !away_id) return alert('Torneo y equipos requeridos');
+  const res = await fetch('/api/admin/match',{method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tournament_id, home_id, away_id, date: date||undefined, gym: gym||undefined})});
+  const data = await res.json(); if(!data.ok){ alert(data.error||'Error'); return; }
+  document.getElementById('match_date').value=''; document.getElementById('match_gym').value='';
+  await loadMatches();
+}
+
+(async function bootstrap(){
+  await loadRulesets();
+  await loadTeams();
+  await loadTournaments();
+})();
+</script>
+</body>
+</html>
