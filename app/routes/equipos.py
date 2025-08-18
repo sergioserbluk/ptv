@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from ..models import get_db
+from ..models import get_session, Team
 
 
 equipos_bp = Blueprint("equipos", __name__)
@@ -8,9 +8,10 @@ equipos_bp = Blueprint("equipos", __name__)
 
 @equipos_bp.get("/")
 def listar_equipos():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT id, name, short FROM teams ORDER BY name ASC")
-    rows = [{"id": r[0], "name": r[1], "short": r[2]} for r in c.fetchall()]
-    conn.close()
+    with get_session() as session:
+        teams = session.query(Team).order_by(Team.name.asc()).all()
+        rows = [
+            {"id": t.id, "name": t.name, "short": t.short}
+            for t in teams
+        ]
     return jsonify(rows)

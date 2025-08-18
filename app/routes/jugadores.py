@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from ..models import get_db
+from ..models import get_session, Player
 
 
 jugadores_bp = Blueprint("jugadores", __name__)
@@ -11,15 +11,21 @@ def listar_jugadores():
     team_id = request.args.get("team_id", type=int)
     if not team_id:
         return jsonify([])
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(
-        "SELECT id, number, name, role, libero FROM players WHERE team_id=? ORDER BY (libero DESC), number",
-        (team_id,),
-    )
-    rows = [
-        {"id": r[0], "number": r[1], "name": r[2], "role": r[3], "libero": bool(r[4])}
-        for r in c.fetchall()
-    ]
-    conn.close()
+    with get_session() as session:
+        players = (
+            session.query(Player)
+            .filter(Player.team_id == team_id)
+            .order_by(Player.libero.desc(), Player.number)
+            .all()
+        )
+        rows = [
+            {
+                "id": p.id,
+                "number": p.number,
+                "name": p.name,
+                "role": p.role,
+                "libero": bool(p.libero),
+            }
+            for p in players
+        ]
     return jsonify(rows)
