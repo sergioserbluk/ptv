@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from ..models import get_db
+from ..models import get_session, Tournament, Ruleset
 
 
 torneos_bp = Blueprint("torneos", __name__)
@@ -8,16 +8,21 @@ torneos_bp = Blueprint("torneos", __name__)
 
 @torneos_bp.get("/")
 def listar_torneos():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(
-        """SELECT t.id, t.name, t.season, r.name, t.type
-                 FROM tournaments t JOIN rulesets r ON r.id=t.ruleset_id
-                 ORDER BY t.id DESC"""
-    )
-    rows = [
-        {"id": r[0], "name": r[1], "season": r[2], "ruleset": r[3], "type": r[4]}
-        for r in c.fetchall()
-    ]
-    conn.close()
+    with get_session() as session:
+        torneos = (
+            session.query(Tournament)
+            .join(Ruleset)
+            .order_by(Tournament.id.desc())
+            .all()
+        )
+        rows = [
+            {
+                "id": t.id,
+                "name": t.name,
+                "season": t.season,
+                "ruleset": t.ruleset.name,
+                "type": t.type,
+            }
+            for t in torneos
+        ]
     return jsonify(rows)
