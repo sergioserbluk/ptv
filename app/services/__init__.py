@@ -2,7 +2,7 @@ import datetime
 import json
 from typing import Any, Dict
 
-from ..models import get_db
+from ..models import get_session, Event, Match, Team
 
 socketio = None
 
@@ -40,53 +40,35 @@ def broadcast():
 def log_event(match_id, set_number, ev_type, payload):
     if not match_id:
         return
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(
-        """INSERT INTO events(match_id, set_number, ts, type, payload_json)
-                 VALUES (?,?,?,?,?)""",
-        (
-            match_id,
-            set_number,
-            datetime.datetime.now().isoformat(),
-            ev_type,
-            json.dumps(payload or {}),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    if socketio:
-        socketio.emit("marker", {"type": ev_type, "payload": payload or {}})
 
 
 def load_match_names(match_id):
     try:
-        conn = get_db()
-        c = conn.cursor()
-        c.execute(
-            """SELECT th.name, ta.name FROM matches m
-                     JOIN teams th ON th.id=m.home_id
-                     JOIN teams ta ON ta.id=m.away_id
-                     WHERE m.id=?""",
-            (match_id,),
-        )
-        r = c.fetchone()
-        if r:
-            state["home_name"], state["away_name"] = r[0], r[1]
-        conn.close()
+        with get_session() as session:
+            home = (
+                session.query(Team.name)
+                .join(Match, Match.home_id == Team.id)
+                .filter(Match.id == match_id)
+                .scalar()
+            )
+            away = (
+                session.query(Team.name)
+                .join(Match, Match.away_id == Team.id)
+                .filter(Match.id == match_id)
+                .scalar()
+            )
+            if home and away:
+                state["home_name"], state["away_name"] = home, away
     except Exception:
         pass
 
 
 def rules_for_match(match_id):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT rules_snapshot_json FROM matches WHERE id=?", (match_id,))
-    r = c.fetchone()
-    conn.close()
-    if not r or not r[0]:
+    with get_session() as session:
+        match = session.get(Match, match_id)
+    if not match or not match.rules_snapshot_json:
         return {"subs_per_set": 6}
     try:
-        return json.loads(r[0])
+        return json.loads(match.rules_snapshot_json)
     except Exception:
         return {"subs_per_set": 6}

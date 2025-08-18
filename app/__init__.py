@@ -23,6 +23,7 @@ def create_app():
     from .routes.jugadores import jugadores_bp
     from .routes.streaming import streaming_bp
     from . import sockets
+    from .errors import register_error_handlers
 
     init_db()
     set_socketio(socketio)
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(streaming_bp, url_prefix="/api/stream")
 
     sockets.register_socketio_events(socketio)
+    register_error_handlers(app)
 
     @app.route("/")
     def index():

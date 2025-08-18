@@ -1,16 +1,19 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
-from ..models import get_db
+
 
 
 equipos_bp = Blueprint("equipos", __name__)
 
 
+def _validate_team_payload(data):
+    if "name" not in data or not isinstance(data["name"], str):
+        raise APIError("'name' is required", 400)
+    for field in ("short", "colors", "logo_url"):
+        if field in data and data[field] is not None and not isinstance(data[field], str):
+            raise APIError(f"'{field}' must be a string", 400)
+
+
 @equipos_bp.get("/")
 def listar_equipos():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT id, name, short FROM teams ORDER BY name ASC")
-    rows = [{"id": r[0], "name": r[1], "short": r[2]} for r in c.fetchall()]
-    conn.close()
-    return jsonify(rows)
+
