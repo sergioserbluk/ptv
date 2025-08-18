@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from ..services import teams as team_service
-from ..errors import APIError
+
 
 
 equipos_bp = Blueprint("equipos", __name__)
@@ -17,26 +16,4 @@ def _validate_team_payload(data):
 
 @equipos_bp.get("/")
 def listar_equipos():
-    return jsonify({"data": team_service.list_teams()})
 
-
-@equipos_bp.post("/")
-def crear_equipo():
-    data = request.get_json() or {}
-    _validate_team_payload(data)
-    team = team_service.create_team(data)
-    return jsonify({"data": team}), 201
-
-
-@equipos_bp.put("/<int:team_id>")
-def actualizar_equipo(team_id: int):
-    data = request.get_json() or {}
-    _validate_team_payload(data)
-    team = team_service.update_team(team_id, data)
-    return jsonify({"data": team})
-
-
-@equipos_bp.delete("/<int:team_id>")
-def eliminar_equipo(team_id: int):
-    team_service.delete_team(team_id)
-    return jsonify({"status": "success", "message": "deleted"})

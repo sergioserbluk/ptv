@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from ..services import tournaments as tournament_service
-from ..errors import APIError
+
 
 
 torneos_bp = Blueprint("torneos", __name__)
@@ -21,26 +20,3 @@ def _validate_tournament_payload(data):
 
 @torneos_bp.get("/")
 def listar_torneos():
-    return jsonify({"data": tournament_service.list_tournaments()})
-
-
-@torneos_bp.post("/")
-def crear_torneo():
-    data = request.get_json() or {}
-    _validate_tournament_payload(data)
-    torneo = tournament_service.create_tournament(data)
-    return jsonify({"data": torneo}), 201
-
-
-@torneos_bp.put("/<int:torneo_id>")
-def actualizar_torneo(torneo_id: int):
-    data = request.get_json() or {}
-    _validate_tournament_payload(data)
-    torneo = tournament_service.update_tournament(torneo_id, data)
-    return jsonify({"data": torneo})
-
-
-@torneos_bp.delete("/<int:torneo_id>")
-def eliminar_torneo(torneo_id: int):
-    tournament_service.delete_tournament(torneo_id)
-    return jsonify({"status": "success", "message": "deleted"})
