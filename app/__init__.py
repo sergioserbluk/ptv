@@ -22,6 +22,7 @@ def create_app():
     from .routes.partidos import partidos_bp
     from .routes.jugadores import jugadores_bp
     from . import sockets
+    from .errors import register_error_handlers
 
     init_db()
     set_socketio(socketio)
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(jugadores_bp, url_prefix="/api/jugadores")
 
     sockets.register_socketio_events(socketio)
+    register_error_handlers(app)
 
     @app.route("/")
     def index():
