@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Control · VolleyLive</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#0f172a;color:#e5e7eb;margin:0}
+    header{padding:14px 20px;background:#111827;border-bottom:1px solid #334155}
+    .row{display:flex;gap:16px;align-items:flex-start;padding:16px}
+    .card{background:#111827;border:1px solid #334155;border-radius:12px;padding:16px}
+    button{background:#16a34a;color:white;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+    button.secondary{background:#3b82f6}
+    button.warn{background:#ef4444}
+    input,select{background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px}
+    h2{margin:6px 0 12px}
+    label{font-size:12px;opacity:.8}
+    iframe{width:960px;height:540px;border:1px solid #334155;border-radius:12px;background:#000}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .big{font-size:38px;font-weight:700}
+  </style>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+
+</head>
+<body>
+  <header><strong>VolleyLive · Panel de Control</strong></header>
+
+  <div class="row">
+    <div class="card" style="min-width:370px">
+      <h2>Equipos</h2>
+      <div class="grid">
+        <div>
+          <label>Local</label>
+          <input id="home_name" value="Local"/>
+        </div>
+        <div>
+          <label>Visitante</label>
+          <input id="away_name" value="Visitante"/>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btn_names">Actualizar nombres</button>
+      </div>
+
+      <h2 style="margin-top:18px">Modo</h2>
+      <div class="grid">
+        <button class="secondary" data-mode="intro">Intro</button>
+        <button class="secondary" data-mode="partido">Partido</button>
+        <button class="secondary" data-mode="entre_sets">Entre sets</button>
+        <button class="secondary" data-mode="tiempo_fuera">Tiempo fuera</button>
+        <button class="secondary" data-mode="publicidad">Publicidad</button>
+      </div>
+
+      <h2 style="margin-top:18px">Puntos</h2>
+      <div class="grid">
+        <div>
+          <div>Local</div>
+          <div>
+            <button data-point="home:+1">+1</button>
+            <button class="warn" data-point="home:-1">-1</button>
+          </div>
+        </div>
+        <div>
+          <div>Visitante</div>
+          <div>
+            <button data-point="away:+1">+1</button>
+            <button class="warn" data-point="away:-1">-1</button>
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:18px">Sets</h2>
+      <div class="grid">
+        <div>
+          <div>Local</div>
+          <div>
+            <button data-set="home:+1">+1</button>
+            <button class="warn" data-set="home:-1">-1</button>
+          </div>
+        </div>
+        <div>
+          <div>Visitante</div>
+          <div>
+            <button data-set="away:+1">+1</button>
+            <button class="warn" data-set="away:-1">-1</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btn_nextset">Siguiente Set</button>
+      </div>
+      <!-- inserto temporizador -->
+       <h2 style="margin-top:18px">Reloj de partido</h2>
+<div>
+  <span id="clock_view" class="big">00:00</span>
+</div>
+<div style="margin-top:6px">
+  <button id="clk_start">Start</button>
+  <button id="clk_stop"  class="warn">Stop</button>
+  <button id="clk_reset">Reset</button>
+</div>
+
+<h2 style="margin-top:18px">Tiempo muerto</h2>
+<div>
+  <select id="to_team">
+    <option value="home">Local</option>
+    <option value="away">Visitante</option>
+  </select>
+  <select id="to_secs">
+    <option value="30">30s</option>
+    <option value="60" selected>60s</option>
+  </select>
+</div>
+<div style="margin-top:6px">
+  <button id="to_start" class="secondary">Iniciar TO</button>
+  <button id="to_stop"  class="warn">Detener TO</button>
+</div>
+<!-- fin tiempo muerto -->
+      <h2 style="margin-top:18px">Timer</h2>
+      <div>
+        <input id="timer_seconds" type="number" value="60" style="width:120px"/>
+        <button id="btn_tset">Set</button>
+        <button id="btn_tstart">Start</button>
+        <button id="btn_tstop" class="warn">Stop</button>
+        <button id="btn_treset">Reset</button>
+      </div>
+
+      <h2 style="margin-top:18px">Publicidad</h2>
+      <div>
+        <label><input type="checkbox" id="ads_toggle" checked/> Activar rotador</label>
+      </div>
+    </div>
+
+    <div class="card" style="flex:1">
+      <h2>Preview /display</h2>
+      <iframe id="prev" src="/display"></iframe>
+      <div id="state" style="margin-top:10px;font-size:13px;opacity:.8"></div>
+    </div>
+  </div>
+
+<script>
+  const ioClient = io(); // /socket.io/socket.io.js
+  const $ = sel => document.querySelector(sel);
+
+  const stateBox = $('#state');
+
+  ioClient.on('connect', ()=> console.log('control conectado'));
+  ioClient.on('state_update', (st)=>{
+    stateBox.textContent = JSON.stringify(st);
+    // cargar valores en inputs si llegan del servidor
+    $('#home_name').value = st.home_name || 'Local';
+    $('#away_name').value = st.away_name || 'Visitante';
+  });
+
+  $('#btn_names').onclick = ()=>{
+    ioClient.emit('update_names', {
+      home_name: $('#home_name').value,
+      away_name: $('#away_name').value
+    });
+  };
+
+  document.querySelectorAll('button[data-mode]').forEach(b=>{
+    b.onclick = ()=> ioClient.emit('mode', {mode: b.dataset.mode});
+  });
+
+  document.querySelectorAll('button[data-point]').forEach(b=>{
+    const [team,delta] = b.dataset.point.split(':');
+    b.onclick = ()=> ioClient.emit('point',{team, amount: parseInt(delta)});
+  });
+
+  document.querySelectorAll('button[data-set]').forEach(b=>{
+    const [team,delta] = b.dataset.set.split(':');
+    b.onclick = ()=> ioClient.emit('set_point',{team, amount: parseInt(delta)});
+  });
+
+  $('#btn_nextset').onclick = ()=> ioClient.emit('next_set');
+
+  $('#btn_tset').onclick   = ()=> ioClient.emit('timer',{action:'set', seconds: parseInt($('#timer_seconds').value||0)});
+  $('#btn_tstart').onclick = ()=> ioClient.emit('timer',{action:'start'});
+  $('#btn_tstop').onclick  = ()=> ioClient.emit('timer',{action:'stop'});
+  $('#btn_treset').onclick = ()=> ioClient.emit('timer',{action:'reset'});
+
+  $('#ads_toggle').onchange = (e)=> ioClient.emit('ads_toggle', {enabled: e.target.checked});
+//   codigo para temporizador
+function fmtMMSS(total){
+  const m = String(Math.floor(total/60)).padStart(2,'0');
+  const s = String(total%60).padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+ioClient.on('state_update', (st)=>{
+  // ... lo que ya tenías
+  // reloj
+  document.getElementById('clock_view').textContent = fmtMMSS(st.match_clock_seconds || 0);
+});
+
+// reloj partido
+document.getElementById('clk_start').onclick = ()=> ioClient.emit('clock', {action:'start'});
+document.getElementById('clk_stop').onclick  = ()=> ioClient.emit('clock', {action:'stop'});
+document.getElementById('clk_reset').onclick = ()=> ioClient.emit('clock', {action:'reset'});
+
+// tiempo muerto
+document.getElementById('to_start').onclick = ()=>{
+  const team = document.getElementById('to_team').value;
+  const seconds = parseInt(document.getElementById('to_secs').value, 10);
+  ioClient.emit('timeout', {action:'start', team, seconds});
+};
+document.getElementById('to_stop').onclick  = ()=> ioClient.emit('timeout', {action:'stop'});
+
+// emite tick cada 1s (servidor actualiza relojes)
+setInterval(()=> ioClient.emit('tick'), 1000);
+//fin codigo temporizador
+</script>
+</body>
+</html>

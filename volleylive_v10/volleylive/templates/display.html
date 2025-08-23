@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Display · VolleyLive</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body {
+    margin: 0;
+    background: transparent; /* no cubre la cámara */
+    color: #fff;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+  }
+
+  #stage {
+    position: relative;
+    width: 1280px;   /* ancho HD más manejable */
+    height: 720px;   /* alto HD más manejable */
+    margin: 0 auto;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  /* ------------------- INTRO GRANDE ------------------- */
+  .intro {
+    position: absolute;
+    left: 80px;
+    top: 80px;
+    width: 1120px;
+    height: 500px;
+    background: rgba(17,24,39,.75); /* fondo semi-transparente */
+    border-radius: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148,163,184,.3);
+    text-align: center;
+  }
+
+  .intro h1 {
+    font-size: 64px;
+    margin: 20px 0 10px;
+    font-weight: 900;
+  }
+
+  .intro p {
+    font-size: 28px;
+    margin: 6px 0;
+    opacity: .9;
+  }
+
+  /* ------------------- SCORE ABAJO ------------------- */
+  .scorebar {
+    position: absolute;
+    left: 200px;
+    bottom: 20px;
+    width: 880px;
+    height: 100px;
+    background: rgba(17,24,39,.85);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    border: 1px solid rgba(148,163,184,.3);
+  }
+
+  .team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .name {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .pts {
+    font-size: 48px;
+    font-weight: 900;
+  }
+
+  .sets {
+    font-size: 16px;
+    opacity: .85;
+  }
+
+  /* ------------------- BADGE (ej: "en vivo") ------------------- */
+  .badge {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    padding: 6px 12px;
+    background: #111827;
+    border: 1px solid rgba(148,163,184,.3);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+</style>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+
+</head>
+<body>
+<div id="stage">
+    <!-- reloj -->
+     <div class="badge" id="badge">intro</div>
+
+<!-- banner de tiempo muerto -->
+<div class="badge" id="tobadge" style="left:auto; right:20px; display:none;">
+  TO <span id="toteam">–</span> · <span id="tosecs">00</span>s
+</div>
+
+<!-- ... intro ... -->
+
+<div class="scorebar" id="score" style="display:none">
+  <div class="team">
+    <div class="name" id="hname">Local</div>
+    <div class="sets">Sets: <span id="hsets">0</span></div>
+    <div class="pts" id="hpts">0</div>
+  </div>
+  <div class="team">
+    <div class="name" id="aname">Visitante</div>
+    <div class="sets">Sets: <span id="asets">0</span></div>
+    <div class="pts" id="apts">0</div>
+  </div>
+  <!-- reloj partido a la derecha de la barra -->
+  <div class="team">
+    <div class="name">Tiempo</div>
+    <div class="pts" id="clk">00:00</div>
+  </div>
+</div>
+<!-- fin reloj partido -->
+  <div class="badge" id="badge">Intro</div>
+  <div class="intro" id="intro" style="display:none">
+    <h1 id="ititle">Título</h1>
+    <p id="isub">Subtítulo</p>
+    <p id="iextra">Extra</p>
+  </div>
+  <div class="scorebar" id="score" style="display:none">
+    <div class="team">
+      <div class="name" id="hname">Local</div>
+      <div class="sets">Sets: <span id="hsets">0</span></div>
+      <div class="pts" id="hpts">0</div>
+    </div>
+    <div class="team">
+      <div class="name" id="aname">Visitante</div>
+      <div class="sets">Sets: <span id="asets">0</span></div>
+      <div class="pts" id="apts">0</div>
+    </div>
+  </div>
+  <div class="ads" id="ads" style="display:none">
+    <img id="adimg" src="" alt="ads"/>
+  </div>
+</div>
+
+<script>
+  const ioClient = io();
+  const el = id => document.getElementById(id);
+  let ads = [], idx = 0, adsTimer = null;
+
+  async function loadAds(){
+    try{
+      const res = await fetch('/ads'); const j = await res.json();
+      ads = j.images || [];
+    }catch(e){ ads=[]; }
+  }
+  function showMode(m){
+    el('badge').textContent = m;
+    el('intro').style.display = (m==='intro')?'flex':'none';
+    el('score').style.display = (m==='partido' || m==='entre_sets' || m==='tiempo_fuera')?'flex':'none';
+    el('ads').style.display   = (m==='publicidad' || m==='tiempo_fuera' || m==='entre_sets')?'flex':'none';
+  }
+  function rotator(on){
+    if(!on){ if(adsTimer){clearInterval(adsTimer); adsTimer=null;} return; }
+    if(!ads.length) return;
+    el('adimg').src = ads[idx % ads.length]; idx++;
+    if(adsTimer) clearInterval(adsTimer);
+    adsTimer = setInterval(()=>{
+      el('adimg').src = ads[idx % ads.length]; idx++;
+    }, 5000);
+  }
+
+  ioClient.on('connect', ()=> console.log('display conectado'));
+  ioClient.on('state_update', async st=>{
+    el('hname').textContent = st.home_name;
+    el('aname').textContent = st.away_name;
+    el('hpts').textContent  = st.home_points;
+    el('apts').textContent  = st.away_points;
+    el('hsets').textContent = st.home_sets;
+    el('asets').textContent = st.away_sets;
+
+    el('ititle').textContent = st.intro_title || '';
+    el('isub').textContent   = st.intro_subtitle || '';
+    el('iextra').textContent = st.intro_extra || '';
+
+    showMode(st.mode || 'intro');
+    if(st.ads_enabled){
+      await loadAds(); rotator(true);
+    }else{
+      rotator(false);
+    }
+    //actualiza reloj
+    function fmtMMSS(t){ const m=String(Math.floor(t/60)).padStart(2,'0'); const s=String(t%60).padStart(2,'0'); return `${m}:${s}`; }
+
+ioClient.on('state_update', async st=>{
+  // ... lo que ya hacés
+  // reloj
+  document.getElementById('clk').textContent = fmtMMSS(st.match_clock_seconds || 0);
+
+  // TO banner
+  const bad = document.getElementById('tobadge');
+  if(st.timeout_active){
+    document.getElementById('toteam').textContent = st.timeout_team === 'home' ? 'LOCAL' : 'VISITANTE';
+    document.getElementById('tosecs').textContent = String(st.timeout_seconds).padStart(2,'0');
+    bad.style.display = 'inline-block';
+  } else {
+    bad.style.display = 'none';
+  }
+});
+// fin código temporizador
+  });
+</script>
+</body>
+</html>

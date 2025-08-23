@@ -1,0 +1,7 @@
+{
+  "intro": { "blocks": { "intro_box": { "x": 360, "y": 260, "w": 1200, "h": 560 } } },
+  "partido": { "blocks": { "score_bar": { "x": 360, "y": 860, "w": 1200, "h": 180 } } },
+  "tiempo_fuera": { "blocks": { "score_bar": { "x": 360, "y": 860, "w": 1200, "h": 180 }, "ads_big": { "x": 260, "y": 180, "w": 1400, "h": 720 } } },
+  "entre_sets": { "blocks": { "score_bar": { "x": 360, "y": 860, "w": 1200, "h": 180 }, "ads_big": { "x": 260, "y": 180, "w": 1400, "h": 720 } } },
+  "publicidad": { "blocks": { "ads_big": { "x": 260, "y": 180, "w": 1400, "h": 720 } } }
+}
