@@ -6,12 +6,22 @@ from .services import (
     log_event,
     state,
 )
+from .streaming import stream_manager
 
 
 def register_socketio_events(socketio: SocketIO):
     @socketio.on("connect")
     def on_connect():
         emit("state_update", state)
+
+    @socketio.on("start_stream")
+    def on_start_stream():
+        url = stream_manager.start()
+        emit("stream_url", {"url": url})
+
+    @socketio.on("stop_stream")
+    def on_stop_stream():
+        stream_manager.stop()
 
     @socketio.on("select_context")
     def on_select_context(data):

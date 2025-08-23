@@ -40,16 +40,6 @@ def broadcast():
 def log_event(match_id, set_number, ev_type, payload):
     if not match_id:
         return
-    with get_session() as session:
-        event = Event(
-            match_id=match_id,
-            set_number=set_number,
-            ts=datetime.datetime.now().isoformat(),
-            type=ev_type,
-            payload_json=json.dumps(payload or {}),
-        )
-        session.add(event)
-        session.commit()
 
 
 def load_match_names(match_id):
