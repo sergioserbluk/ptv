@@ -20,3 +20,4 @@ def _validate_tournament_payload(data):
 
 @torneos_bp.get("/")
 def listar_torneos():
+    return jsonify({"torneos": []})

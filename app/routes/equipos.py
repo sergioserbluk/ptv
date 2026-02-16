@@ -16,4 +16,5 @@ def _validate_team_payload(data):
 
 @equipos_bp.get("/")
 def listar_equipos():
+    return jsonify({"equipos": []})
 

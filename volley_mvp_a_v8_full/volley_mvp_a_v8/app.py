@@ -235,7 +235,7 @@ def api_subs_count():
     limit = get_rules_value("subs_per_set", 6)
     return jsonify({"count": n, "limit": limit})
 
-@app.route("/api/events/export.csv")
+@app.route("/api/events/export.csv") # @app.route se usa para indicar que es una ruta
 def api_export_csv():
     match_id = request.args.get("match_id", type=int)
     if not match_id: return ("match_id requerido", 400)
@@ -332,7 +332,7 @@ def on_timer(data):
         except Exception: pass
     broadcast()
 
-@socketio.on("tick")
+@socketio.on("tick") #@socketio.on("tick") # llamado cada segundo por el cliente
 def on_tick():
     if state["timer_running"] and state["timer_seconds"] > 0:
         state["timer_seconds"] -= 1; broadcast()
@@ -341,7 +341,7 @@ def on_tick():
 def on_ads_toggle(data):
     state["ads_enabled"] = bool(data.get("enabled", False)); broadcast()
 
-@socketio.on("intro_update")
+@socketio.on("intro_update") # actualizar textos de intro @ sirve para indicar que es un evento
 def on_intro_update(data):
     state["intro_title"] = (data.get("intro_title") or state["intro_title"])[:120]
     state["intro_subtitle"] = (data.get("intro_subtitle") or state["intro_subtitle"])[:160]
